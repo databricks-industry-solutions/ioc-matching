@@ -11,10 +11,10 @@
 
 CREATE STREAMING LIVE TABLE ioc_summary_dns
 AS
-SELECT ts_day, obs_value, src_data, src_ip, dst_ip, count(*) AS cnt
+SELECT aug.ts_day, aug.obs_value, aug.src_data, aug.src_ip, aug.dst_ip, count(*) AS cnt, min(aug.ts) AS first_seen, max(aug.ts) AS last_seen
 FROM
   (
-  SELECT 'dns' AS src_data, extracted_obs AS obs_value, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
+  SELECT 'dns' AS src_data, extracted_obs AS obs_value, exp.ts::timestamp, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
   FROM
     (
     SELECT d.*,
@@ -31,10 +31,10 @@ GROUP BY ts_day, obs_value, src_data, src_ip, dst_ip;
 
 CREATE STREAMING LIVE TABLE ioc_summary_http
 AS
-SELECT ts_day, obs_value, src_data, src_ip, dst_ip, count(*) AS cnt
+SELECT aug.ts_day, aug.obs_value, aug.src_data, aug.src_ip, aug.dst_ip, count(*) AS cnt, min(aug.ts) AS first_seen, max(aug.ts) AS last_seen
 FROM
   (
-  SELECT 'http' AS src_data, extracted_obs AS obs_value, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
+  SELECT 'http' AS src_data, extracted_obs AS obs_value, exp.ts::timestamp, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
   FROM
     (
     SELECT d.*,
