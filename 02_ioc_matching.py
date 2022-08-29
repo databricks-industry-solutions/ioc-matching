@@ -198,7 +198,7 @@ FROM
     FROM {full_table_name} AS d
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
   ) AS aug 
-  INNER JOIN {ioc_table_name} AS ioc ON aug.extracted_obs=ioc.ioc_value
+  INNER JOIN {ioc_table_name} AS ioc ON aug.extracted_obs=ioc.ioc_value AND ioc.active=TRUE
   '''
   return ioc_match_sql_str
 
