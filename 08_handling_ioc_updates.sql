@@ -23,6 +23,8 @@
 -- MAGIC 1. Log data that arrives after IOC updates
 -- MAGIC 2. Log data that arrived before IOC updates and hence are already ingested
 -- MAGIC 
+-- MAGIC We will be combining and extending the streaming DLT concept and the summary table concept that we have introduced in the notebooks `03_dlt_ioc_matching.sql` and `04_dlt_summary_table.sql` to address the two cases.
+-- MAGIC 
 -- MAGIC ## Case 1: Log data that arrives after IOC updates
 -- MAGIC 
 -- MAGIC The main concern in this case is to ensure that the newly arrived data is matched against the latest IOCs. This case is addressed by the continuous IOC matching Delta Live Tables (DLT) pipeline using the notebook `03_dlt_ioc_matching.sql`. If you are using scheduled batch jobs, the updated `ioc` table will be picked up and used in the ioc matching join query in the next execution of the notebook on the newly arrived log data. If you are using streaming/continuous jobs, the ioc matching query will pick up the latest snapshot of the `ioc` table at the next micro-batch execution. See https://docs.databricks.com/workflows/delta-live-tables/delta-live-tables-incremental-data.html#streaming-joins.
@@ -42,6 +44,14 @@
 -- MAGIC ## Streaming interpretation
 -- MAGIC 
 -- MAGIC A streaming interpretation is very useful in summarizing the two cases. In the first case, we treat the log data as streaming data sources and incrementally match new log data records against a snapshot of the latest `ioc` table. In the second case, we treat the `ioc` table as a stream (or change data capture stream) and match each new IOCs against the summary tables that represents the historical data up to a the last summary table update time.
+-- MAGIC 
+-- MAGIC ## Outline of this notebook
+-- MAGIC 
+-- MAGIC 1. Print out summary table size statistics to understand the (lossy) compression ratios
+-- MAGIC 2. Create the various union-all views that would greatly simplify the following SQL queries and user experience
+-- MAGIC 3. Show how to query the summary tables using a time window filter and format the results in a user-friendly way
+-- MAGIC 4. Show how to perform IOC matching against the summary tables - this query will be the basis for the DLT for case (2) above.
+-- MAGIC 5. Show how to retrieve the underlying raw data for the results of the IOC matching against summary tables - this will be needed by analysts investigating the hits from the IOC matching against the summary tables
 
 -- COMMAND ----------
 
