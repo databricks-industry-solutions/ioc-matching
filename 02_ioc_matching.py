@@ -188,13 +188,14 @@ def genSQL(db, tb, ipv4_col_list, fqdn_col_list, ioc_table_name, dlt=False):
   ioc_str = "concat(\n        " + ",\n        ".join(ioc_extract_str_list) + "\n        ) AS extracted_obslist"
   
   ioc_match_sql_str = f'''
-SELECT {optimizer_hint} now() AS detection_ts, '{full_table_name}' AS src, aug.raw, ioc.ioc_value AS matched_ioc, ioc.ioc_type
+SELECT {optimizer_hint} now() AS detection_ts, ioc.ioc_value AS matched_ioc, ioc.ioc_type, aug.ts AS first_seen, aug.ts AS last_seen, 
+  ARRAY('{full_table_name}') AS src_tables, ARRAY(aug.raw) AS raw
 FROM
   (
-  SELECT exp.raw, extracted_obs
+  SELECT timestamp(exp.ts) AS ts, exp.raw, extracted_obs
   FROM
     (
-    SELECT to_json(struct(d.*)) AS raw,
+    SELECT d.ts, to_json(struct(d.*)) AS raw,
       {ioc_str}
     FROM {full_table_name} AS d
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
@@ -249,10 +250,10 @@ def genSummaryTableSQL(db, tb, ioc_str):
   summary_sql_str = f'''
 CREATE STREAMING LIVE TABLE ioc_summary_{tb}
 AS
-SELECT ts_day, obs_value, src_data, src_ip, dst_ip, count(*) AS cnt
+SELECT aug.ts_day, aug.obs_value, aug.src_data, aug.src_ip, aug.dst_ip, count(*) AS cnt, min(aug.ts) AS first_seen, max(aug.ts) AS last_seen
 FROM
   (
-  SELECT '{full_table_name}' AS src_data, extracted_obs AS obs_value, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
+  SELECT '{full_table_name}' AS src_data, extracted_obs AS obs_value, exp.ts::timestamp, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
   FROM
     (
     SELECT d.*,

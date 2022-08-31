@@ -2611,10 +2611,13 @@ INSERT INTO {getParam("db_name")}.dns VALUES
 iochits_ddl = f"""
 CREATE TABLE IF NOT EXISTS {getParam("iochits_table")} (
     detection_ts TIMESTAMP,
-    src STRING,
-    raw STRING,
     matched_ioc STRING,
-    ioc_type STRING) USING DELTA"""
+    ioc_type STRING,
+    first_seen TIMESTAMP,
+    last_seen TIMESTAMP,
+    src_tables ARRAY<STRING>,
+    raw ARRAY<STRING>
+    ) USING DELTA"""
 
 # COMMAND ----------
 

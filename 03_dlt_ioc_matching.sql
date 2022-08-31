@@ -10,13 +10,13 @@
 
 CREATE STREAMING LIVE TABLE inc_iochits
 AS
-SELECT now() AS detection_ts, 'dns' AS src, aug.raw, ioc.ioc_value AS matched_ioc, ioc.ioc_type
+SELECT now() AS detection_ts, ioc.ioc_value AS matched_ioc, ioc.ioc_type, aug.ts AS first_seen, aug.ts AS last_seen, ARRAY('dns') AS src_tables, ARRAY(aug.raw) AS raw 
 FROM
   (
-  SELECT exp.raw, extracted_obs
+  SELECT timestamp(exp.ts) AS ts, exp.raw, extracted_obs
   FROM
     (
-    SELECT to_json(struct(d.*)) AS raw,
+    SELECT d.ts, to_json(struct(d.*)) AS raw,
       concat(
         regexp_extract_all(d.query, '(\\d+\.\\d+\.\\d+\.\\d+)'),
         regexp_extract_all(d.id_orig_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
@@ -26,17 +26,17 @@ FROM
     FROM stream(ioc_matching_lipyeow_lim.dns) AS d
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
   ) AS aug 
-  INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON aug.extracted_obs=ioc.ioc_value
+  INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON aug.extracted_obs=ioc.ioc_value AND ioc.active=TRUE
 
 UNION ALL
 
-SELECT now() AS detection_ts, 'http' AS src, aug.raw, ioc.ioc_value AS matched_ioc, ioc.ioc_type
+SELECT now() AS detection_ts, ioc.ioc_value AS matched_ioc, ioc.ioc_type, aug.ts AS first_seen, aug.ts AS last_seen, ARRAY('http') AS src_tables, ARRAY(aug.raw) AS raw
 FROM
   (
-  SELECT exp.raw, extracted_obs
+  SELECT timestamp(exp.ts) AS ts, exp.raw, extracted_obs
   FROM
     (
-    SELECT to_json(struct(d.*)) AS raw,
+    SELECT d.ts, to_json(struct(d.*)) AS raw,
       concat(
         regexp_extract_all(d.orig_filenames, '(\\d+\.\\d+\.\\d+\.\\d+)'),
         regexp_extract_all(d.orig_fuids, '(\\d+\.\\d+\.\\d+\.\\d+)'),
@@ -54,7 +54,7 @@ FROM
     FROM stream(ioc_matching_lipyeow_lim.http) AS d
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
   ) AS aug 
-  INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON aug.extracted_obs=ioc.ioc_value
+  INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON aug.extracted_obs=ioc.ioc_value AND ioc.active=TRUE
 ;
 
 -- COMMAND ----------
