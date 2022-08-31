@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Ad Hoc IOC Matching on All Tables
 # MAGIC 
-# MAGIC version 1.1 (2022-07-01)
+# MAGIC version 2.0 (2022-08-30)
 # MAGIC 
 # MAGIC ![usecase_image](https://raw.githubusercontent.com/lipyeowlim/public/main/img/ioc-matching/ir-ioc-matching.png)
 # MAGIC 
