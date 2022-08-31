@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Ad Hoc IOC Matching on All Tables
 # MAGIC 
-# MAGIC version 1.1 (2022-07-01)
+# MAGIC version 2.0 (2022-08-30)
 # MAGIC 
 # MAGIC ![usecase_image](https://raw.githubusercontent.com/lipyeowlim/public/main/img/ioc-matching/ir-ioc-matching.png)
 # MAGIC 
@@ -12,6 +12,7 @@
 # MAGIC * **Continuous IOC matching**: The approach in the `02_ioc_matching` notebook can be easily adapted to perform incremental or continuous IOC matching using [Delta Live Tables (DLT)](https://docs.databricks.com/data-engineering/delta-live-tables/index.html). An example is given in the `03_dlt_ioc_matching` notebook.
 # MAGIC * **Ad hoc historical IOC search**: Historical IOC search at interactive speeds can be done using summary tables constructed using DLT. An example is given in the `04_dlt_summary_table` notebook. The `06_verify_dlt` notebook provides a series of steps to verify the DLT capabilities.
 # MAGIC * **Multi-cloud/region federated query**: Log ingestion and IOC matching can happen in each cloud or region without incurring egress costs. Hunting and triage of IOC hits can use federated queries from a single workspace to get results back from the workspaces in each cloud or region. The `07_multicloud` notebook demonstrates the use of multi-cloud and multi-region federated queries. 
+# MAGIC * **Fully-automated continuous IOC matching with continuous IOC updates**: The streaming IOC matching approach in the `03_dlt_ioc_matching` notebook and the summary table approach in the `04_dlt_summary_table` notebook can be combined and extended to fully automate the IOC matching process even when the curated set of IOCs are constantly updated. In particular, when a new IOC is added, not only should newly ingested log data be matched against the new IOC, but the historical data needs to be matched against the new IOC. The `08_handling_ioc_updates` notebook demonstrates these concepts.
 # MAGIC 
 # MAGIC ## Overview of this Notebook
 # MAGIC * Setup: Initialize configuration parameters, create database and load three delta tables: `dns`, `http`, `ioc`
@@ -187,18 +188,19 @@ def genSQL(db, tb, ipv4_col_list, fqdn_col_list, ioc_table_name, dlt=False):
   ioc_str = "concat(\n        " + ",\n        ".join(ioc_extract_str_list) + "\n        ) AS extracted_obslist"
   
   ioc_match_sql_str = f'''
-SELECT {optimizer_hint} now() AS detection_ts, '{full_table_name}' AS src, aug.raw, ioc.ioc_value AS matched_ioc, ioc.ioc_type
+SELECT {optimizer_hint} now() AS detection_ts, ioc.ioc_value AS matched_ioc, ioc.ioc_type, aug.ts AS first_seen, aug.ts AS last_seen, 
+  ARRAY('{full_table_name}') AS src_tables, ARRAY(aug.raw) AS raw
 FROM
   (
-  SELECT exp.raw, extracted_obs
+  SELECT timestamp(exp.ts) AS ts, exp.raw, extracted_obs
   FROM
     (
-    SELECT to_json(struct(d.*)) AS raw,
+    SELECT d.ts, to_json(struct(d.*)) AS raw,
       {ioc_str}
     FROM {full_table_name} AS d
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
   ) AS aug 
-  INNER JOIN {ioc_table_name} AS ioc ON aug.extracted_obs=ioc.ioc_value
+  INNER JOIN {ioc_table_name} AS ioc ON aug.extracted_obs=ioc.ioc_value AND ioc.active=TRUE
   '''
   return ioc_match_sql_str
 
@@ -248,10 +250,10 @@ def genSummaryTableSQL(db, tb, ioc_str):
   summary_sql_str = f'''
 CREATE STREAMING LIVE TABLE ioc_summary_{tb}
 AS
-SELECT ts_day, obs_value, src_data, src_ip, dst_ip, count(*) AS cnt
+SELECT aug.ts_day, aug.obs_value, aug.src_data, aug.src_ip, aug.dst_ip, count(*) AS cnt, min(aug.ts) AS first_seen, max(aug.ts) AS last_seen
 FROM
   (
-  SELECT '{full_table_name}' AS src_data, extracted_obs AS obs_value, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
+  SELECT '{full_table_name}' AS src_data, extracted_obs AS obs_value, exp.ts::timestamp, date_trunc('DAY', timestamp(exp.ts)) as ts_day, exp.id_orig_h as src_ip, exp.id_resp_h as dst_ip
   FROM
     (
     SELECT d.*,
