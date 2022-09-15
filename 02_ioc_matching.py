@@ -22,6 +22,8 @@
 # MAGIC * Generate SQL DLT pipeline for continuous/incremental IOC matching pipeline
 # MAGIC * Generate SQL DLT pipeline for maintaining summary tables for fast historical IOC search
 # MAGIC 
+# MAGIC Note that Step 1 and 2 can be replaced by a metadata discovery solution (e.g. Immuta, Privacera).
+# MAGIC 
 # MAGIC ## Value
 # MAGIC 
 # MAGIC * Simplicity: agility & operational effectiveness
@@ -31,9 +33,8 @@
 # MAGIC ## Running this notebook
 # MAGIC 
 # MAGIC * If you received a DBC file for this solution accelerator, you just need to import the DBC file
-# MAGIC * If you received a zip file for this solution accelerator, the easiest way to get started is to:
-# MAGIC   * Create a git repo
-# MAGIC   * Unzip and copy the code into the git repo
+# MAGIC * If you received a link to the git repo for this solution accelerator, the easiest way to get started is to:
+# MAGIC   * Set up Git integration in your Databricks workspace if you have not already done so. See https://docs.databricks.com/repos/index.html
 # MAGIC   * Add the repo in the Databricks console -> Repos -> "Add Repo"
 # MAGIC   * Once the repo is added, you can go to the repo and click on the `02_ioc_matching` notebook.
 # MAGIC * Note that only the dns & http sample data are included in the notebook. The `vpc_flow_logs` database is not included in the notebook.
