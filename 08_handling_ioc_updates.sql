@@ -62,7 +62,7 @@
 
 -- COMMAND ----------
 
--- DBTITLE 1,Statistics of summary table sizes
+-- DBTITLE 1,Display statistics of summary table sizes
 SELECT 
 (SELECT count(*) FROM ioc_matching_lipyeow_lim.dns) AS dns_cnt,
 (SELECT count(*) FROM ioc_matching_lipyeow_lim.ioc_summary_dns) AS dns_summary_cnt,
@@ -72,7 +72,7 @@ SELECT
 
 -- COMMAND ----------
 
--- DBTITLE 1,Create the UNION-ALL view for all the summary tables
+-- DBTITLE 1,Create the UNION-ALL view for all the summary tables (admin)
 DROP VIEW IF EXISTS ioc_matching_lipyeow_lim.ioc_summary_all
 ;
 CREATE VIEW IF NOT EXISTS ioc_matching_lipyeow_lim.ioc_summary_all
@@ -86,7 +86,7 @@ FROM ioc_matching_lipyeow_lim.ioc_summary_http AS h
 
 -- COMMAND ----------
 
--- DBTITLE 1,Ad hoc time range filtering on summary tables
+-- DBTITLE 1,Apply ad hoc time range filter on summary tables
 SELECT obs_value, src_ip, dst_ip, sum(cnt) AS cnt, min(first_seen) AS first_seen, max(last_seen) AS last_seen, collect_set(src_table) AS src_tables
 FROM ioc_matching_lipyeow_lim.ioc_summary_all
 WHERE ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T00:00:00+0000'
@@ -96,11 +96,12 @@ ORDER BY cnt DESC
 
 -- COMMAND ----------
 
+-- DBTITLE 1,Simulate a new IOC being added
 INSERT INTO ioc_matching_lipyeow_lim.ioc VALUES ('ipv4', '44.206.168.192', '2022-08-29T00:00:00+0000', TRUE);
 
 -- COMMAND ----------
 
--- DBTITLE 1,IOC matching against summary tables with time range filter
+-- DBTITLE 1,Match newly added IOC against summary tables with time range filter
 SELECT s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip, sum(s.cnt) AS cnt, min(s.first_seen) AS first_seen, max(s.last_seen) AS last_seen, collect_set(s.src_table) AS src_tables
 FROM ioc_matching_lipyeow_lim.ioc_summary_all AS s
 INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts > '2022-08-28T00:00:00+0000'
@@ -111,6 +112,7 @@ ORDER BY cnt DESC
 
 -- COMMAND ----------
 
+-- DBTITLE 1,Create the union-all view for silver-level logs (admin)
 DROP VIEW IF EXISTS ioc_matching_lipyeow_lim.v_logs_silver
 ;
 
@@ -239,10 +241,6 @@ FROM
 
 SELECT min(timestamp(ts)), max(timestamp(ts))
 FROM ioc_matching_lipyeow_lim.dns;
-
--- COMMAND ----------
-
-select array('hello');
 
 -- COMMAND ----------
 

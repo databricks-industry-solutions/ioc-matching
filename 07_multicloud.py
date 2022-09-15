@@ -131,7 +131,10 @@ print(table_list)
 # DBTITLE 1,Create the federated union all view
 view_name = multicloud_cfg["federated_view"]
 drop_view_ddl = f"DROP VIEW IF EXISTS {view_name}\n"
-create_view_ddl = f"""CREATE OR REPLACE VIEW {view_name}\nAS\n""" + "\nUNION ALL\n".join(f"SELECT * FROM {t}\n" for t in table_list) 
+# note that jdbc driver only supports atomic types, hence any complex types need to be cast to an atomic type
+cols = """detection_ts, matched_ioc, ioc_type, first_seen, last_seen, src_tables::string, raw::string"""
+create_view_ddl = f"""CREATE OR REPLACE VIEW {view_name}\nAS\n""" + "\nUNION ALL\n".join(f"SELECT {cols} FROM {t}\n" for t in table_list) 
+
 print(drop_view_ddl)
 spark.sql(drop_view_ddl)
 print(create_view_ddl)
