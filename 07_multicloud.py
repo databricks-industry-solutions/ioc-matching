@@ -1,4 +1,9 @@
 # Databricks notebook source
+# MAGIC %md 
+# MAGIC You may find this series of notebooks at https://github.com/databricks-industry-solutions/ioc-matching. 
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC # Multi-cloud/region Federated Queries using JDBC External Tables
 # MAGIC 

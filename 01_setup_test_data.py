@@ -1,4 +1,9 @@
 # Databricks notebook source
+# MAGIC %md 
+# MAGIC You may find this series of notebooks at https://github.com/databricks-industry-solutions/ioc-matching. 
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC *If you are looking for the entry-point notebook, please go to `02_ioc_matching.py` instead.*
 # MAGIC 
