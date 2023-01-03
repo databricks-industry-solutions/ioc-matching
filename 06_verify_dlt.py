@@ -36,7 +36,7 @@
 verify_sql=f"""
 SELECT *
 FROM {getParam("inc_iochits_table")}
-WHERE raw:ts < 1650240000.0
+WHERE first_seen < '2022-09-30T04:12:16+00:00'
 --AND detection_ts > now()-'3 MINUTES'::INTERVAL
 """
 result_df = spark.sql(verify_sql)
@@ -49,7 +49,7 @@ assert result_df.count()==106
 verify_sql=f"""
 SELECT *
 FROM {getParam("inc_iochits_table")}
-WHERE raw:ts = 1650240000.0
+WHERE first_seen = '2022-09-30T04:12:16+00:00'
 --AND detection_ts > now()-'3 MINUTES'::INTERVAL
 """
 result_df = spark.sql(verify_sql)
