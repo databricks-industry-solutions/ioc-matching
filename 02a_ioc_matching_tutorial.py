@@ -1,7 +1,7 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC 
-# MAGIC # How to do IOC matching in Databricks using SQL
+# MAGIC # How to do IOC matching using SQL
 # MAGIC 
 # MAGIC ## Working example
 # MAGIC 
@@ -127,9 +127,9 @@
 # MAGIC FROM 
 # MAGIC   (
 # MAGIC   SELECT 
-# MAGIC       d.*,
-# MAGIC --    d.ts, 
-# MAGIC --    to_json(struct(d.*)) AS raw, 
+# MAGIC --    d.*,
+# MAGIC     d.ts, 
+# MAGIC     to_json(struct(d.*)) AS raw, 
 # MAGIC     CONCAT(
 # MAGIC           ARRAY(d.id_orig_h),
 # MAGIC           ARRAY(d.id_resp_h),
@@ -143,7 +143,7 @@
 # DBTITLE 1,Use equi-join on the exploded column
 # MAGIC %sql
 # MAGIC 
-# MAGIC SELECT aug.*
+# MAGIC SELECT now() AS detection_ts, aug.*
 # MAGIC FROM 
 # MAGIC   (
 # MAGIC   SELECT e.*, explode(e.extracted_obslist) AS extracted_obs
@@ -161,3 +161,7 @@
 # MAGIC     ) AS e
 # MAGIC   ) AS aug
 # MAGIC   INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON aug.extracted_obs=ioc.ioc_value AND ioc.active = TRUE  
+
+# COMMAND ----------
+
+
