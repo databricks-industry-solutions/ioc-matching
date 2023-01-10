@@ -20,7 +20,7 @@ FROM
       CONCAT(
           ARRAY(d.id_orig_h),
           ARRAY(d.id_resp_h),
-          regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)', 0)
+          regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
         ) AS extracted_obslist
     FROM stream(ioc_matching_lipyeow_lim.http) AS d
     ) AS e
