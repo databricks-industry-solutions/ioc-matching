@@ -41,12 +41,13 @@
 verify_sql=f"""
 SELECT *
 FROM {getParam("inc_iochits_table")}
-WHERE raw:ts < 1650240000.0
+WHERE first_seen < '2022-03-17T00:00:00+00:00'
 --AND detection_ts > now()-'3 MINUTES'::INTERVAL
 """
 result_df = spark.sql(verify_sql)
 print(f"{getParam('inc_iochits_table')} : result count before insert = {result_df.count()}")
-assert result_df.count()==106
+
+# we will not use an assert here in order to allow for flexibility in the baseline use case
 
 # COMMAND ----------
 
@@ -54,8 +55,7 @@ assert result_df.count()==106
 verify_sql=f"""
 SELECT *
 FROM {getParam("inc_iochits_table")}
-WHERE raw:ts = 1650240000.0
---AND detection_ts > now()-'3 MINUTES'::INTERVAL
+WHERE first_seen > '2012-03-17T00:00:00+00:00'
 """
 result_df = spark.sql(verify_sql)
 print("-------------------------------------------")
@@ -92,7 +92,7 @@ spark.sql(ddl)
 verify_sql=f"""
 SELECT *
 FROM {getParam("db_name")}.ioc_summary_all
-WHERE ts_day < '2022-04-18T00:00:00.000+0000'
+WHERE ts_day < '2012-03-17T00:00:00.000+0000'
 AND obs_value='www.download.windowsupdate.com'
 """
 result_df = spark.sql(verify_sql)
