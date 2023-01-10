@@ -75,7 +75,7 @@
 # DBTITLE 1,Extract IOC types using regular expressions
 # MAGIC %sql
 # MAGIC 
-# MAGIC SELECT d.referrer, regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)', 0) AS extracted_ipv4
+# MAGIC SELECT d.referrer, regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0) AS extracted_ipv4
 # MAGIC FROM ioc_matching_lipyeow_lim.http AS d
 
 # COMMAND ----------
@@ -86,7 +86,7 @@
 # MAGIC SELECT CONCAT(
 # MAGIC         ARRAY(d.id_orig_h),
 # MAGIC         ARRAY(d.id_resp_h),
-# MAGIC         regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)', 0)
+# MAGIC         regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC       ) AS extracted_obslist
 # MAGIC FROM ioc_matching_lipyeow_lim.http AS d
 
@@ -106,7 +106,7 @@
 # MAGIC   SELECT d.*, CONCAT(
 # MAGIC           ARRAY(d.id_orig_h),
 # MAGIC           ARRAY(d.id_resp_h),
-# MAGIC           regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)', 0)
+# MAGIC           regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC         ) AS extracted_obslist
 # MAGIC   FROM ioc_matching_lipyeow_lim.http AS d
 # MAGIC   ) AS aug
@@ -133,7 +133,7 @@
 # MAGIC     CONCAT(
 # MAGIC           ARRAY(d.id_orig_h),
 # MAGIC           ARRAY(d.id_resp_h),
-# MAGIC           regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)', 0)
+# MAGIC           regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC       ) AS extracted_obslist
 # MAGIC   FROM ioc_matching_lipyeow_lim.http AS d
 # MAGIC   ) AS e
@@ -155,7 +155,7 @@
 # MAGIC       CONCAT(
 # MAGIC           ARRAY(d.id_orig_h),
 # MAGIC           ARRAY(d.id_resp_h),
-# MAGIC           regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)', 0)
+# MAGIC           regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC         ) AS extracted_obslist
 # MAGIC     FROM ioc_matching_lipyeow_lim.http AS d
 # MAGIC     ) AS e
