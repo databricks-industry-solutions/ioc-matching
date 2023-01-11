@@ -1,5 +1,6 @@
 -- Databricks notebook source
 create streaming live table summary_http
+partitioned by (ts_bkt, obs_value)
 as
 select 
     date_trunc('HOUR', f.ts::timestamp) as ts_bkt, 
