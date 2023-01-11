@@ -28,13 +28,8 @@
 # DBTITLE 1,Design & test out the summarizing scheme (group by attributes)
 # MAGIC %sql
 # MAGIC 
-<<<<<<< HEAD
-# MAGIC select count(*) as num_rows
-# MAGIC from (
-=======
 # MAGIC --select count(*) as num_rows
 # MAGIC --from (
->>>>>>> 0c2a525 (fix regex and add  summary table tutorial)
 # MAGIC 
 # MAGIC   select date_trunc('HOUR', ts::timestamp) as ts_bkt, 
 # MAGIC     `id.orig_h`,
@@ -48,11 +43,7 @@
 # MAGIC   from ioc_matching_lipyeow_lim.http_big
 # MAGIC   group by ts_bkt, `id.orig_h`, `id.resp_h`, method, status_code, user_agent
 # MAGIC 
-<<<<<<< HEAD
-# MAGIC )
-=======
 # MAGIC --)
->>>>>>> 0c2a525 (fix regex and add  summary table tutorial)
 
 # COMMAND ----------
 
@@ -150,13 +141,9 @@
 # MAGIC 
 # MAGIC select *
 # MAGIC from ioc_matching_lipyeow_lim.summary_all
-<<<<<<< HEAD
 # MAGIC where ts_bkt between '2012-03-16T00:00:00.000+0000' and '2012-03-17T00:00:00.000+0000' 
 # MAGIC   and obs_value = '192.168.21.253'
 # MAGIC order by cnt
-=======
-# MAGIC where obs_value = '192.168.21.253'
->>>>>>> 0c2a525 (fix regex and add  summary table tutorial)
 
 # COMMAND ----------
 
@@ -165,13 +152,8 @@
 # MAGIC 
 # MAGIC select *
 # MAGIC from ioc_matching_lipyeow_lim.http_big as d
-<<<<<<< HEAD
 # MAGIC where d.ts::timestamp between '2012-03-16T19:35:15.660+0000' and '2012-03-16T19:35:25.410+0000'
 # MAGIC   and `id.orig_h` = '192.168.202.88' and `id.resp_h` = '192.168.21.253'
-=======
-# MAGIC where d.ts::timestamp between '2012-03-16T19:39:45.300+0000' and '2012-03-16T19:43:18.080+0000'
-# MAGIC   and `id.orig_h` = '192.168.202.4' and `id.resp_h` = '192.168.21.253'
->>>>>>> 0c2a525 (fix regex and add  summary table tutorial)
 
 # COMMAND ----------
 
