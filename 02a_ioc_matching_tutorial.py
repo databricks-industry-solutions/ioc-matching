@@ -12,16 +12,18 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC 
-# MAGIC --INSERT INTO ioc_matching_lipyeow_lim.ioc VALUES ('ipv4', '192.168.202.103', '2012-03-16T16:00:00.000+0000', TRUE);
+# MAGIC %run ./00_config
+
+# COMMAND ----------
+
+spark.sql(f"USE SCHEMA {getParam('db_name')}")
 
 # COMMAND ----------
 
 # MAGIC %sql
 # MAGIC 
 # MAGIC SELECT *
-# MAGIC FROM ioc_matching_lipyeow_lim.http
+# MAGIC FROM http
 # MAGIC LIMIT 20
 
 # COMMAND ----------
@@ -29,7 +31,7 @@
 # MAGIC %sql
 # MAGIC 
 # MAGIC SELECT * 
-# MAGIC FROM ioc_matching_lipyeow_lim.ioc
+# MAGIC FROM ioc
 # MAGIC LIMIT 20
 
 # COMMAND ----------
@@ -44,8 +46,8 @@
 # MAGIC %sql
 # MAGIC 
 # MAGIC SELECT d.*
-# MAGIC FROM ioc_matching_lipyeow_lim.http AS d
-# MAGIC   INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON d.id_orig_h=ioc.ioc_value AND ioc.active=TRUE
+# MAGIC FROM http AS d
+# MAGIC   INNER JOIN ioc AS ioc ON d.id_orig_h=ioc.ioc_value AND ioc.active=TRUE
 
 # COMMAND ----------
 
@@ -62,7 +64,7 @@
 # MAGIC         ARRAY(d.id_orig_h),
 # MAGIC         ARRAY(d.id_resp_h)
 # MAGIC       ) AS extracted_obslist
-# MAGIC FROM ioc_matching_lipyeow_lim.http AS d
+# MAGIC FROM http AS d
 
 # COMMAND ----------
 
@@ -76,7 +78,7 @@
 # MAGIC %sql
 # MAGIC 
 # MAGIC SELECT d.referrer, regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0) AS extracted_ipv4
-# MAGIC FROM ioc_matching_lipyeow_lim.http AS d
+# MAGIC FROM http AS d
 
 # COMMAND ----------
 
@@ -88,7 +90,7 @@
 # MAGIC         ARRAY(d.id_resp_h),
 # MAGIC         regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC       ) AS extracted_obslist
-# MAGIC FROM ioc_matching_lipyeow_lim.http AS d
+# MAGIC FROM http AS d
 
 # COMMAND ----------
 
@@ -108,9 +110,9 @@
 # MAGIC           ARRAY(d.id_resp_h),
 # MAGIC           regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC         ) AS extracted_obslist
-# MAGIC   FROM ioc_matching_lipyeow_lim.http AS d
+# MAGIC   FROM http AS d
 # MAGIC   ) AS aug
-# MAGIC   INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON ARRAY_CONTAINS(aug.extracted_obslist, ioc.ioc_value) AND ioc.active = TRUE  
+# MAGIC   INNER JOIN ioc AS ioc ON ARRAY_CONTAINS(aug.extracted_obslist, ioc.ioc_value) AND ioc.active = TRUE  
 
 # COMMAND ----------
 
@@ -135,7 +137,7 @@
 # MAGIC           ARRAY(d.id_resp_h),
 # MAGIC           regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC       ) AS extracted_obslist
-# MAGIC   FROM ioc_matching_lipyeow_lim.http AS d
+# MAGIC   FROM http AS d
 # MAGIC   ) AS e
 
 # COMMAND ----------
@@ -157,10 +159,10 @@
 # MAGIC           ARRAY(d.id_resp_h),
 # MAGIC           regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 0)
 # MAGIC         ) AS extracted_obslist
-# MAGIC     FROM ioc_matching_lipyeow_lim.http AS d
+# MAGIC     FROM http AS d
 # MAGIC     ) AS e
 # MAGIC   ) AS aug
-# MAGIC   INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON aug.extracted_obs=ioc.ioc_value AND ioc.active = TRUE  
+# MAGIC   INNER JOIN ioc AS ioc ON aug.extracted_obs=ioc.ioc_value AND ioc.active = TRUE  
 
 # COMMAND ----------
 
