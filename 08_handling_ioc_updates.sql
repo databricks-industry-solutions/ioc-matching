@@ -36,15 +36,21 @@
 -- MAGIC 
 -- MAGIC ## Case 2: Log data that arrived before IOC updates
 -- MAGIC 
--- MAGIC The main concern in this case is to ensure that any new IOCs is checked against all the historical data that was previously ingested. This case is best addressed by the summary tables that are built for the historical data. The notebook `04_dlt_summary_table.sql` provides the sample logic to construct such summary tables via DLT pipelines. With the summary tables, you would then create a streaming DLT query where each newly added IOC gets matched against the summary tables - provided in `09_dlt_ioc_matching_historical.sql`. This streaming DLT query can be run as a batch job or as a streaming job. Naturally, batch jobs will be more cost efficient than streaming jobs. For the batch job approach, the batch schedule and the time granularity of the summary table DLT pipeline may create a blind spot in terms of time coverage. For example, 
+-- MAGIC The main concern in this case is to ensure that any new IOCs is checked against all the historical data that was previously ingested. There are two sub-cases:
+-- MAGIC * **Case 2a** IoC matching on logs that are covered by the summary tables
+-- MAGIC * **Case 2b** Logs that are not covered by the summary tables due to batch scheduling AND are not covered by **Case 1**
+-- MAGIC 
+-- MAGIC Case 2a is best addressed by the summary tables that are built for the historical data. The notebook `04_dlt_summary_table.sql` provides the sample logic to construct such summary tables via DLT pipelines. With the summary tables, you would then create a streaming DLT query where each newly added IOC gets matched against the summary tables - provided in `09_dlt_ioc_matching_historical.sql`. This streaming DLT query can be run as a batch job or as a streaming job. Naturally, batch jobs will be more cost efficient than streaming jobs. 
+-- MAGIC 
+-- MAGIC Case 2b addresses the blind spot in terms of time coverage between the batch schedule (and the time granularity) of the summary table DLT pipeline and the time of the IoC update. For example, 
 -- MAGIC 1. your `ioc` table is updated sporadically throughout the day,
 -- MAGIC 2. your summary tables are updated daily at midnight,
 -- MAGIC 2. your ioc matching batch job (against the summary tables) runs daily at 0600 hours,
--- MAGIC any new IOC that is added to the `ioc` table after 0600 hours will not get matched against the historical data until 0600 hours the following day. If that delay does not meet your operational requirements, you have the option to perform IOC matching of newly arrived IOCs (either stream-based on batch-based) against the sliver of actual historical data (not the summary tables) in between the job for ioc matching against the summary tables. The `09_dlt_ioc_matching_historical.sql` notebook contains sample streaming DLT SQL query for this sub-case as well. You can tune the frequency of these jobs according to your time-coverage requirements and resources required. 
+-- MAGIC any new IOC that is added to the `ioc` table after 0600 hours will not get matched against the historical data until 0600 hours the following day. If that delay does not meet your operational requirements, you have the option to perform IOC matching of newly arrived IOCs (either stream-based on batch-based) against the sliver of actual historical data (not the summary tables) in between the job for ioc matching against the summary tables. The `09_dlt_ioc_matching_historical.sql` notebook contains sample streaming DLT SQL query for Case 2a as well. You can tune the frequency of these jobs according to your time-coverage requirements and resources required. 
 -- MAGIC 
 -- MAGIC ![usecase_image](https://raw.githubusercontent.com/lipyeowlim/public/main/img/ioc-matching/streaming-time-coverage.png)
 -- MAGIC 
--- MAGIC Even with the streaming job approach where, conceptually, each newly added IOC is matched against the data in the summary tables, there will be a blind spot where the historical data between the last update of the summary tables and the current time are not being checked. Again, a separate job that checks the newly added IOC against the actual log data (not the summary tables) between the last update of the summary tables and the current time can be used to mitigate this gap in time coverage if needed. The `09_dlt_ioc_matching_historical.sql` notebook contains sample streaming DLT SQL query for this sub-case as well.
+-- MAGIC In the figure above, each newly added IOC is matched against the data in the summary tables; however, there will be a blind spot where the historical data between the last update of the summary tables and the IoC update time. Again, a separate job for Case 2b that checks the newly added IOC against the actual log data (not the summary tables) between the last update of the summary tables and the IoC update time can be used to mitigate this gap in time coverage if needed. See the `09_dlt_ioc_matching_historical.sql` notebook for a sample of the streaming DLT SQL query.
 -- MAGIC 
 -- MAGIC ## Streaming interpretation
 -- MAGIC 
@@ -67,33 +73,42 @@
 
 -- COMMAND ----------
 
+-- MAGIC %run ./00_config
+
+-- COMMAND ----------
+
+-- MAGIC %python
+-- MAGIC spark.sql(f"USE SCHEMA {getParam('db_name')}")
+
+-- COMMAND ----------
+
 -- DBTITLE 1,Display statistics of summary table sizes
 SELECT 
-(SELECT count(*) FROM ioc_matching_lipyeow_lim.dns) AS dns_cnt,
-(SELECT count(*) FROM ioc_matching_lipyeow_lim.ioc_summary_dns) AS dns_summary_cnt,
-(SELECT count(*) FROM ioc_matching_lipyeow_lim.http) AS http_cnt,
-(SELECT count(*) FROM ioc_matching_lipyeow_lim.ioc_summary_http) AS http_summary_cnt
+(SELECT count(*) FROM dns) AS dns_cnt,
+(SELECT count(*) FROM ioc_summary_dns) AS dns_summary_cnt,
+(SELECT count(*) FROM http) AS http_cnt,
+(SELECT count(*) FROM ioc_summary_http) AS http_summary_cnt
 ;
 
 -- COMMAND ----------
 
 -- DBTITLE 1,Create the UNION-ALL view for all the summary tables (admin)
-DROP VIEW IF EXISTS ioc_matching_lipyeow_lim.ioc_summary_all
+DROP VIEW IF EXISTS ioc_summary_all
 ;
-CREATE VIEW IF NOT EXISTS ioc_matching_lipyeow_lim.ioc_summary_all
+CREATE VIEW IF NOT EXISTS ioc_summary_all
 AS 
 SELECT 'dns' AS src_table, d.*
-FROM ioc_matching_lipyeow_lim.ioc_summary_dns AS d
+FROM ioc_summary_dns AS d
 UNION ALL
 SELECT 'http' AS src_table, h.*
-FROM ioc_matching_lipyeow_lim.ioc_summary_http AS h
+FROM ioc_summary_http AS h
 ;
 
 -- COMMAND ----------
 
 -- DBTITLE 1,Apply ad hoc time range filter on summary tables
 SELECT obs_value, src_ip, dst_ip, sum(cnt) AS cnt, min(first_seen) AS first_seen, max(last_seen) AS last_seen, collect_set(src_table) AS src_tables
-FROM ioc_matching_lipyeow_lim.ioc_summary_all
+FROM ioc_summary_all
 WHERE ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T00:00:00+0000'
 GROUP BY obs_value, src_ip, dst_ip
 ORDER BY cnt DESC
@@ -102,14 +117,14 @@ ORDER BY cnt DESC
 -- COMMAND ----------
 
 -- DBTITLE 1,Simulate a new IOC being added
-INSERT INTO ioc_matching_lipyeow_lim.ioc VALUES ('ipv4', '44.206.168.192', '2022-08-29T00:00:00+0000', TRUE);
+INSERT INTO ioc VALUES ('ipv4', '44.206.168.192', '2022-08-29T00:00:00+0000', TRUE);
 
 -- COMMAND ----------
 
--- DBTITLE 1,Match newly added IOC against summary tables with time range filter
+-- DBTITLE 1,Case 2a: Match newly added IOC against summary tables with time range filter
 SELECT s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip, sum(s.cnt) AS cnt, min(s.first_seen) AS first_seen, max(s.last_seen) AS last_seen, collect_set(s.src_table) AS src_tables
-FROM ioc_matching_lipyeow_lim.ioc_summary_all AS s
-INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts > '2022-08-28T00:00:00+0000'
+FROM ioc_summary_all AS s
+INNER JOIN ioc AS ioc ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts > '2022-08-28T00:00:00+0000'
 WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T00:00:00+0000'
 GROUP BY s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip
 ORDER BY cnt DESC
@@ -118,16 +133,16 @@ ORDER BY cnt DESC
 -- COMMAND ----------
 
 -- DBTITLE 1,Create the union-all view for silver-level logs (admin)
-DROP VIEW IF EXISTS ioc_matching_lipyeow_lim.v_logs_silver
+DROP VIEW IF EXISTS v_logs_silver
 ;
 
-CREATE VIEW IF NOT EXISTS ioc_matching_lipyeow_lim.v_logs_silver
+CREATE VIEW IF NOT EXISTS v_logs_silver
 AS
 SELECT 'dns' AS src_table, TIMESTAMP(d.ts) AS ts, d.id_orig_h AS src_ip, d.id_resp_h AS dst_ip, to_json(STRUCT(d.*)) AS raw
-FROM ioc_matching_lipyeow_lim.dns AS d
+FROM dns AS d
 UNION ALL
 SELECT 'http' AS src_table, TIMESTAMP(h.ts) AS ts, h.id_orig_h AS src_ip, h.id_resp_h AS dst_ip, to_json(STRUCT(h.*)) AS raw
-FROM ioc_matching_lipyeow_lim.http AS h
+FROM http AS h
 ;
 
 -- COMMAND ----------
@@ -141,10 +156,10 @@ SELECT
     max(s.last_seen) AS last_seen,
     collect_set(s.src_table) AS src_tables,
     collect_set(logs.raw) AS raw
-FROM ioc_matching_lipyeow_lim.ioc AS ioc 
-  INNER JOIN ioc_matching_lipyeow_lim.ioc_summary_all AS s
+FROM ioc AS ioc 
+  INNER JOIN ioc_summary_all AS s
     ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts > '2022-08-28T00:00:00+0000'
-  LEFT OUTER JOIN ioc_matching_lipyeow_lim.v_logs_silver AS logs 
+  LEFT OUTER JOIN v_logs_silver AS logs 
     ON s.src_table = logs.src_table
       AND s.src_ip = logs.src_ip 
       AND s.dst_ip = logs.dst_ip 
@@ -163,8 +178,8 @@ WITH matches AS
     min(s.first_seen) AS first_seen,
     max(s.last_seen) AS last_seen,
     collect_set(s.src_table) AS src_tables
-  FROM ioc_matching_lipyeow_lim.ioc_summary_all AS s
-    INNER JOIN ioc_matching_lipyeow_lim.ioc AS ioc 
+  FROM ioc_summary_all AS s
+    INNER JOIN ioc AS ioc 
     ON s.obs_value = ioc.ioc_value 
       AND ioc.active = TRUE 
       AND ioc.created_ts > '2022-08-28T00:00:00+0000'
@@ -178,7 +193,7 @@ SELECT matches.obs_value,
   first(matches.last_seen) AS last_seen,
   first(matches.src_tables) AS src_tables,
   collect_set(logs.raw) AS raw
-FROM matches LEFT OUTER JOIN ioc_matching_lipyeow_lim.v_logs_silver AS logs 
+FROM matches LEFT OUTER JOIN v_logs_silver AS logs 
     ON array_contains(matches.src_tables, logs.src_table)
       AND matches.src_ip = logs.src_ip 
       AND matches.dst_ip = logs.dst_ip 
@@ -190,7 +205,7 @@ GROUP BY matches.obs_value, matches.ioc_type, matches.src_ip, matches.dst_ip
 
 -- COMMAND ----------
 
--- DBTITLE 1,Sample query for matching newly added IOCs against recent logs not covered by summary tables
+-- DBTITLE 1,Case 2b: Sample query for matching newly added IOCs against recent logs not covered by summary tables
 SELECT now() AS detection_ts, 
   ioc.ioc_value AS matched_ioc, 
   ioc.ioc_type, 
@@ -199,7 +214,7 @@ SELECT now() AS detection_ts,
   collect_set(aug.src_table) AS src_tables, 
   collect_set(aug.raw) AS raw
 FROM
-  ioc_matching_lipyeow_lim.ioc AS ioc 
+  ioc AS ioc 
   INNER JOIN 
   (
   SELECT 'dns' AS src_table, exp.ts, exp.raw, extracted_obs
@@ -207,12 +222,12 @@ FROM
     (
     SELECT d.ts, to_json(struct(d.*)) AS raw,
       concat(
-        regexp_extract_all(d.query, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_orig_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_resp_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.query, '([\\w_-]+\.[\\w_-]+\.[\\w_-]+)$')
+        regexp_extract_all(d.query, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.id_orig_h, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.id_resp_h, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.query, '([\\w_-]+\\.[\\w_-]+\\.[\\w_-]+)$')
         ) AS extracted_obslist
-    FROM ioc_matching_lipyeow_lim.dns AS d
+    FROM dns AS d
     WHERE timestamp(d.ts) > '2012-03-01T00:00:00+0000'
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs 
   UNION ALL
@@ -221,20 +236,20 @@ FROM
     (
     SELECT d.ts, to_json(struct(d.*)) AS raw,
       concat(
-        regexp_extract_all(d.orig_filenames, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.orig_fuids, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.origin, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.resp_fuids, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.resp_filenames, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.resp_mime_types, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_orig_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.host, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_resp_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.orig_mime_types, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.referrer, '([\\w_-]+\.[\\w_-]+\.[\\w_-]+)$')
+        regexp_extract_all(d.orig_filenames, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.orig_fuids, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.origin, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.resp_fuids, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.referrer, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.resp_filenames, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.resp_mime_types, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.id_orig_h, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.host, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.id_resp_h, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.orig_mime_types, '(\\d+\\.\\d+\\.\\d+\\.\\d+)'),
+        regexp_extract_all(d.referrer, '([\\w_-]+\\.[\\w_-]+\\.[\\w_-]+)$')
         ) AS extracted_obslist
-    FROM ioc_matching_lipyeow_lim.http AS d
+    FROM http AS d
     WHERE timestamp(d.ts) > '2012-03-01T00:00:00+0000'
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
   ) AS aug 
@@ -245,7 +260,7 @@ FROM
 -- COMMAND ----------
 
 SELECT min(timestamp(ts)), max(timestamp(ts))
-FROM ioc_matching_lipyeow_lim.dns;
+FROM dns;
 
 -- COMMAND ----------
 
