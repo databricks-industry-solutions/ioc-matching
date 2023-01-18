@@ -28,8 +28,8 @@
 # DBTITLE 1,Design & test out the summarizing scheme (group by attributes)
 # MAGIC %sql
 # MAGIC 
-# MAGIC --select count(*) as num_rows
-# MAGIC --from (
+# MAGIC select count(*) as num_rows
+# MAGIC from (
 # MAGIC 
 # MAGIC   select date_trunc('HOUR', ts::timestamp) as ts_bkt, 
 # MAGIC     `id.orig_h`,
@@ -43,7 +43,7 @@
 # MAGIC   from ioc_matching_lipyeow_lim.http_big
 # MAGIC   group by ts_bkt, `id.orig_h`, `id.resp_h`, method, status_code, user_agent
 # MAGIC 
-# MAGIC --)
+# MAGIC )
 
 # COMMAND ----------
 
