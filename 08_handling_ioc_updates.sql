@@ -82,7 +82,7 @@
 
 -- COMMAND ----------
 
--- DBTITLE 1,Display statistics of summary table sizes
+-- DBTITLE 0,Display statistics of summary table sizes
 SELECT 
 (SELECT count(*) FROM dns) AS dns_cnt,
 (SELECT count(*) FROM ioc_summary_dns) AS dns_summary_cnt,
@@ -92,7 +92,7 @@ SELECT
 
 -- COMMAND ----------
 
--- DBTITLE 1,Create the UNION-ALL view for all the summary tables (admin)
+-- DBTITLE 0,Create the UNION-ALL view for all the summary tables (admin)
 DROP VIEW IF EXISTS ioc_summary_all
 ;
 CREATE VIEW IF NOT EXISTS ioc_summary_all
@@ -117,22 +117,31 @@ ORDER BY cnt DESC
 -- COMMAND ----------
 
 -- DBTITLE 1,Simulate a new IOC being added
-INSERT INTO ioc VALUES ('ipv4', '44.206.168.192', '2022-08-29T00:00:00+0000', TRUE);
+DELETE FROM ioc WHERE ioc_value='44.206.168.192';
+INSERT INTO ioc VALUES ('ipv4', '44.206.168.192', '2012-04-01T08:00:00+0000', TRUE);
+
+-- COMMAND ----------
+
+-- MAGIC %md
+-- MAGIC 
+-- MAGIC ## Case 2a: Match newly added IOC against summary tables
+-- MAGIC 
+-- MAGIC In production, use the `now()` timestamp and the `date_trunc()` function or unix timestamp arithmetic to calculate (1) the timestamp of the last update time of the summary table (using the batch job periodicity), and (2) the timestamp of the last update time of the ioc table (using the batch job periodicity).
 
 -- COMMAND ----------
 
 -- DBTITLE 1,Case 2a: Match newly added IOC against summary tables with time range filter
 SELECT s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip, sum(s.cnt) AS cnt, min(s.first_seen) AS first_seen, max(s.last_seen) AS last_seen, collect_set(s.src_table) AS src_tables
 FROM ioc_summary_all AS s
-INNER JOIN ioc AS ioc ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts > '2022-08-28T00:00:00+0000'
-WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T00:00:00+0000'
+INNER JOIN ioc AS ioc ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts >= '2012-04-01T08:00:00+0000'
+WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T08:00:00+0000'
 GROUP BY s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip
 ORDER BY cnt DESC
 ;
 
 -- COMMAND ----------
 
--- DBTITLE 1,Create the union-all view for silver-level logs (admin)
+-- DBTITLE 0,Create the union-all view for silver-level logs (admin)
 DROP VIEW IF EXISTS v_logs_silver
 ;
 
@@ -147,7 +156,7 @@ FROM http AS h
 
 -- COMMAND ----------
 
--- DBTITLE 1,If you still have the raw data, you can retrieve the potentially matching raw data as well
+-- DBTITLE 0,If you still have the raw data, you can retrieve the potentially matching raw data as well
 SELECT
     now() AS detection_ts,
     s.obs_value AS matched_ioc,
@@ -158,19 +167,19 @@ SELECT
     collect_set(logs.raw) AS raw
 FROM ioc AS ioc 
   INNER JOIN ioc_summary_all AS s
-    ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts > '2022-08-28T00:00:00+0000'
+    ON s.obs_value = ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts >= '2022-04-01T08:00:00+0000'
   LEFT OUTER JOIN v_logs_silver AS logs 
     ON s.src_table = logs.src_table
       AND s.src_ip = logs.src_ip 
       AND s.dst_ip = logs.dst_ip 
       AND logs.ts >= s.first_seen
       AND logs.ts <= s.last_seen
-WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T00:00:00+0000'
+WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T08:00:00+0000'
 GROUP BY s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip;
 
 -- COMMAND ----------
 
--- DBTITLE 1,Alternate SQL if you want to preserve the total match counts from the summary tables
+-- DBTITLE 0,Alternate SQL if you want to preserve the total match counts from the summary tables
 WITH matches AS 
 (
   SELECT s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip, 
@@ -182,8 +191,8 @@ WITH matches AS
     INNER JOIN ioc AS ioc 
     ON s.obs_value = ioc.ioc_value 
       AND ioc.active = TRUE 
-      AND ioc.created_ts > '2022-08-28T00:00:00+0000'
-  WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T00:00:00+0000'
+      AND ioc.created_ts >= '2022-04-01T08:00:00+0000'
+  WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T08:00:00+0000'
   GROUP BY s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip
 )
 SELECT matches.obs_value,
@@ -205,20 +214,21 @@ GROUP BY matches.obs_value, matches.ioc_type, matches.src_ip, matches.dst_ip
 
 -- COMMAND ----------
 
--- DBTITLE 1,Case 2b: Sample query for matching newly added IOCs against recent logs not covered by summary tables
-SELECT now() AS detection_ts, 
-  ioc.ioc_value AS matched_ioc, 
-  ioc.ioc_type, 
-  min(timestamp(aug.ts)) AS first_seen,
-  max(timestamp(aug.ts)) AS last_seen,
-  collect_set(aug.src_table) AS src_tables, 
-  collect_set(aug.raw) AS raw
+-- MAGIC %md
+-- MAGIC 
+-- MAGIC ## Case 2b: Match newly added IOC against log data not covered by summary tables
+-- MAGIC 
+-- MAGIC In production, use the `now()` timestamp and the `date_trunc()` function or unix timestamp arithmetic to calculate (1) the timestamp of the last update time of the summary table (using the batch job periodicity), and (2) the timestamp of the last update time of the ioc table (using the batch job periodicity).
+
+-- COMMAND ----------
+
+-- DBTITLE 1,Create a view to simplify the ioc matching query
+DROP VIEW IF EXISTS l7_logs_obs;
+
+CREATE VIEW l7_logs_obs 
+AS 
+SELECT 'dns' AS src_table, exp.ts, exp.raw, extracted_obs
 FROM
-  ioc AS ioc 
-  INNER JOIN 
-  (
-  SELECT 'dns' AS src_table, exp.ts, exp.raw, extracted_obs
-  FROM
     (
     SELECT d.ts, to_json(struct(d.*)) AS raw,
       concat(
@@ -228,11 +238,10 @@ FROM
         regexp_extract_all(d.query, '([\\w_-]+\\.[\\w_-]+\\.[\\w_-]+)$')
         ) AS extracted_obslist
     FROM dns AS d
-    WHERE timestamp(d.ts) > '2012-03-01T00:00:00+0000'
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs 
-  UNION ALL
-  SELECT 'http' AS src_table, exp.ts, exp.raw, extracted_obs
-  FROM
+UNION ALL
+SELECT 'http' AS src_table, exp.ts, exp.raw, extracted_obs
+FROM
     (
     SELECT d.ts, to_json(struct(d.*)) AS raw,
       concat(
@@ -250,17 +259,29 @@ FROM
         regexp_extract_all(d.referrer, '([\\w_-]+\\.[\\w_-]+\\.[\\w_-]+)$')
         ) AS extracted_obslist
     FROM http AS d
-    WHERE timestamp(d.ts) > '2012-03-01T00:00:00+0000'
     )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
-  ) AS aug 
-  ON aug.extracted_obs=ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts > '2022-08-28T00:00:00+0000'
-  GROUP BY detection_ts, matched_ioc, ioc_type, date_trunc('DAY', timestamp(aug.ts))
 ;
 
 -- COMMAND ----------
 
-SELECT min(timestamp(ts)), max(timestamp(ts))
-FROM dns;
+select * from l7_logs_obs;
+
+-- COMMAND ----------
+
+-- DBTITLE 1,Case 2b: Sample query for matching newly added IOCs against recent logs not covered by summary tables
+SELECT now() AS detection_ts, 
+  ioc.ioc_value AS matched_ioc, 
+  ioc.ioc_type, 
+  min(timestamp(aug.ts)) AS first_seen,
+  max(timestamp(aug.ts)) AS last_seen,
+  collect_set(aug.src_table) AS src_tables, 
+  collect_set(aug.raw) AS raw
+FROM ioc 
+  INNER JOIN l7_logs_obs AS aug 
+  ON aug.extracted_obs=ioc.ioc_value AND ioc.active = TRUE AND ioc.created_ts >= '2012-04-01T08:00:00+0000'
+WHERE timestamp(aug.ts) > '2012-03-01T00:00:00+0000'
+GROUP BY detection_ts, matched_ioc, ioc_type, date_trunc('DAY', timestamp(aug.ts))
+;
 
 -- COMMAND ----------
 

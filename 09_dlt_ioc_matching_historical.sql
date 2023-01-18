@@ -11,7 +11,7 @@
 -- MAGIC ## Prerequisites
 -- MAGIC 
 -- MAGIC * the `ioc_summary_all` view must created using the command in the notebook `08_handling_ioc_updates.sql`
--- MAGIC * the `v_logs_silver` view must created using the command in the notebook `08_handling_ioc_updates.sql`
+-- MAGIC * the `l7_logs_obs` view must created using the command in the notebook `08_handling_ioc_updates.sql`
 -- MAGIC 
 -- MAGIC ## Parametrization
 -- MAGIC 
@@ -42,7 +42,7 @@ AS
       AND s.dst_ip = logs.dst_ip 
       AND logs.ts >= s.first_seen
       AND logs.ts <= s.last_seen
-  WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T00:00:00+0000'
+  WHERE s.ts_day BETWEEN '2012-03-01T00:00:00+0000' AND '2012-04-01T08:00:00+0000'
   GROUP BY s.obs_value, ioc.ioc_type, s.src_ip, s.dst_ip
 ;
 
@@ -60,45 +60,9 @@ SELECT now() AS detection_ts,
   collect_set(aug.raw) AS raw
 FROM
   STREAM(ioc_matching_lipyeow_lim.ioc) AS ioc 
-  INNER JOIN 
-  (
-  SELECT 'dns' AS src_table, exp.ts, exp.raw, extracted_obs
-  FROM
-    (
-    SELECT d.ts, to_json(struct(d.*)) AS raw,
-      concat(
-        regexp_extract_all(d.query, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_orig_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_resp_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.query, '([\\w_-]+\.[\\w_-]+\.[\\w_-]+)$')
-        ) AS extracted_obslist
-    FROM ioc_matching_lipyeow_lim.dns AS d
-    WHERE timestamp(d.ts) > '2012-03-01T00:00:00+0000'
-    )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs 
-  UNION ALL
-  SELECT 'http' AS src_table, exp.ts, exp.raw, extracted_obs
-  FROM
-    (
-    SELECT d.ts, to_json(struct(d.*)) AS raw,
-      concat(
-        regexp_extract_all(d.orig_filenames, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.orig_fuids, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.origin, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.resp_fuids, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.referrer, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.resp_filenames, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.resp_mime_types, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_orig_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.host, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.id_resp_h, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.orig_mime_types, '(\\d+\.\\d+\.\\d+\.\\d+)'),
-        regexp_extract_all(d.referrer, '([\\w_-]+\.[\\w_-]+\.[\\w_-]+)$')
-        ) AS extracted_obslist
-    FROM ioc_matching_lipyeow_lim.http AS d
-    WHERE timestamp(d.ts) > '2012-03-01T00:00:00+0000'
-    )  AS exp LATERAL VIEW explode(exp.extracted_obslist) AS extracted_obs
-  ) AS aug 
+  INNER JOIN ioc_matching_lipyeow_lim.l7_logs_obs AS aug 
   ON aug.extracted_obs=ioc.ioc_value AND ioc.active = TRUE
+  WHERE timestamp(aug.ts) > '2012-03-01T00:00:00+0000'
   GROUP BY detection_ts, matched_ioc, ioc_type, date_trunc('DAY', timestamp(aug.ts))
 ;
 
