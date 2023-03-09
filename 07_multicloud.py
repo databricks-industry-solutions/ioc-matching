@@ -90,7 +90,7 @@ multicloud_cfg={
     {
       "name": "azure",
       "jdbc": {
-        "url": "jdbc:databricks://eastus2.azuredatabricks.net:443;transportMode=http;ssl=1;UseNativeQuery=0;httpPath=sql/protocolv1/o/5206439413157315/0812-164905-tear862;AuthMech=3;UID=token;PWD=REPLACEWITHPAT",
+        "url": "jdbc:databricks://adb-984752964297111.11.azuredatabricks.net:443/default;transportMode=http;ssl=1;UseNativeQuery=0;httpPath=sql/protocolv1/o/984752964297111/0812-165520-brine786;AuthMech=3;UID=token;PWD=REPLACEWITHPAT",
         "driver": "com.databricks.client.jdbc.Driver",
         "token_scope": "lipyeow-sec01",
         "token_key": "db-azure-pat"
