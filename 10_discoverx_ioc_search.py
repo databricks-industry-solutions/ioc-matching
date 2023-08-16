@@ -12,10 +12,6 @@
 
 # COMMAND ----------
 
-# MAGIC %pip show dbl-discoverx
-
-# COMMAND ----------
-
 dbutils.library.restartPython() 
 
 # COMMAND ----------
@@ -112,6 +108,7 @@ display(spark.sql(sql_str))
 
 # COMMAND ----------
 
+# DBTITLE 1,Let's find a fqdn to do the search 
 sql_str = f"""
 select query, count(*) as cnt 
 from {getParam('catalog')}.{getParam('db')}.dns 
@@ -130,11 +127,12 @@ dx.scan(from_tables=f"{getParam('catalog')}.{getParam('db')}.*", sample_size=100
 
 # COMMAND ----------
 
+# DBTITLE 1,Let's look at the rules used to discover the columns
 dx.display_rules()
 
 # COMMAND ----------
 
-# DBTITLE 1,What exactly does the scan result look like?
+# DBTITLE 1,What exactly does the scan result look like in a dataframe?
 display(dx.scan_result)
 
 # COMMAND ----------
@@ -191,6 +189,18 @@ dx_new.load(full_table_name=f"{getParam('catalog')}.{getParam('db')}.iocdx")
 # DBTITLE 1,Sanity check `dx_new` using a search
 df = dx_new.search("znkbmknmqyvbxi", from_tables="*.*.*", by_class="fqdn")
 display(df)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
+# MAGIC ## What does this mean?
+# MAGIC
+# MAGIC * In the absence of any full text search technology, a security analyst can perform IOC searches without knowing the table schemas in a notebook environment.
+# MAGIC * From a cost and TCO perspective, IOC search using DiscoverX mitigates the need for
+# MAGIC   * ELT pipelines to normalize the log data into a common data model, and 
+# MAGIC   * full text search indexing technology
+# MAGIC * Trade cost for search performance and interactive experience 
 
 # COMMAND ----------
 
