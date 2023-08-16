@@ -5,6 +5,18 @@
 # MAGIC
 # MAGIC DiscoverX enables you to perform schema-agnostic IoC search - You do not need to know the table schemas in order to find IoCs in your log data.
 # MAGIC
+# MAGIC
+# MAGIC ### Requirements for running this notebook
+# MAGIC
+# MAGIC * This notebook requires a compute cluster with Unity Catalog support
+# MAGIC * This notebook is dependent on the `00_config` notebook to setup the config json
+# MAGIC * This notebook requires the dbl-discoverx python library
+# MAGIC
+# MAGIC ### Running this notebook
+# MAGIC
+# MAGIC * Click the "Run all" button.
+# MAGIC
+# MAGIC
 
 # COMMAND ----------
 
