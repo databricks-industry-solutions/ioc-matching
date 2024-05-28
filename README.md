@@ -6,7 +6,7 @@
 
 # Indicator-of-Compromise (IOC) Matching
 ___
-Contact Author: <lipyeow@databricks.com>
+Contact Author: <cybersecurity@databricks.com>
 
 
 ## Use Cases 
